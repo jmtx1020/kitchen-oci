@@ -21,10 +21,10 @@ module Kitchen
     class Oci
       # generic class for blockstorage
       class Blockstorage < Oci
-        require_relative "api"
-        require_relative "config"
-        require_relative "models/iscsi"
-        require_relative "models/paravirtual"
+        require_relative 'api'
+        require_relative 'config'
+        require_relative 'models/iscsi'
+        require_relative 'models/paravirtual'
 
         def initialize(config, state, oci, api, action = :create)
           super()
@@ -79,6 +79,9 @@ module Kitchen
 
         def create_volume(volume)
           info("Creating <#{volume[:name]}>...")
+
+          info("This is the volume source details: #{volume[:source_details]}")
+
           result = api.blockstorage.create_volume(volume_details(volume))
           response = volume_response(result.data.id)
           info("Finished creating <#{volume[:name]}>.")
@@ -97,7 +100,7 @@ module Kitchen
           info("Deleting <#{volume[:display_name]}>...")
           api.blockstorage.delete_volume(volume[:id])
           api.blockstorage.get_volume(volume[:id])
-            .wait_until(:lifecycle_state, OCI::Core::Models::Volume::LIFECYCLE_STATE_TERMINATED)
+             .wait_until(:lifecycle_state, OCI::Core::Models::Volume::LIFECYCLE_STATE_TERMINATED)
           info("Finished deleting <#{volume[:display_name]}>.")
         end
 
@@ -105,7 +108,7 @@ module Kitchen
           info("Detaching <#{attachment_name(volume_attachment)}>...")
           api.compute.detach_volume(volume_attachment[:id])
           api.compute.get_volume_attachment(volume_attachment[:id])
-            .wait_until(:lifecycle_state, OCI::Core::Models::VolumeAttachment::LIFECYCLE_STATE_DETACHED)
+             .wait_until(:lifecycle_state, OCI::Core::Models::VolumeAttachment::LIFECYCLE_STATE_DETACHED)
           info("Finished detaching <#{attachment_name(volume_attachment)}>.")
         end
 
@@ -122,16 +125,16 @@ module Kitchen
 
         def volume_response(volume_id)
           api.blockstorage.get_volume(volume_id)
-            .wait_until(:lifecycle_state, OCI::Core::Models::Volume::LIFECYCLE_STATE_AVAILABLE).data
+             .wait_until(:lifecycle_state, OCI::Core::Models::Volume::LIFECYCLE_STATE_AVAILABLE).data
         end
 
         def attachment_response(attachment_id)
           api.compute.get_volume_attachment(attachment_id)
-            .wait_until(:lifecycle_state, OCI::Core::Models::VolumeAttachment::LIFECYCLE_STATE_ATTACHED).data
+             .wait_until(:lifecycle_state, OCI::Core::Models::VolumeAttachment::LIFECYCLE_STATE_ATTACHED).data
         end
 
         def volume_details(volume)
-          OCI::Core::Models::CreateVolumeDetails.new(
+          details = OCI::Core::Models::CreateVolumeDetails.new(
             compartment_id: oci.compartment,
             availability_domain: config[:availability_domain],
             display_name: volume[:name],
@@ -139,10 +142,18 @@ module Kitchen
             vpus_per_gb: volume[:vpus_per_gb] || 10,
             defined_tags: config[:defined_tags]
           )
+
+          if volume.key?(:source_details)
+            details.source_details = OCI::Core::Models::VolumeSourceFromVolumeDetails.new(
+              type: volume[:source_details][:type],
+              id: volume[:source_details][:id]
+            )
+          end
+          details
         end
 
         def attachment_name(attachment)
-          attachment[:display_name].gsub(/(?:paravirtual|iscsi)-/, "")
+          attachment[:display_name].gsub(/(?:paravirtual|iscsi)-/, '')
         end
 
         def final_volume_state(response)
